@@ -1,0 +1,52 @@
+name: Check flake
+on:
+  push:
+    path:
+      - ./**.nix
+      - ./flake.lock
+  schedule:
+    - cron: 5 4 * * 5 # At 04:05 on Friday.
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v10
+      - uses: DeterminateSystems/magic-nix-cache-action@v4
+      - name: Run `nix flake check`
+        run: nix flake check --accept-flake-config
+  buildImage:
+    needs: check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v10
+      - uses: DeterminateSystems/magic-nix-cache-action@v4
+      - name: Build Docker Image
+        run: nix build --accept-flake-config --print-build-logs
+  pushImage:
+    runs-on: ubuntu-22.04
+    needs: check
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v10
+      - uses: DeterminateSystems/magic-nix-cache-action@v4
+      - name: Push docker image
+        run: |
+          nix build --accept-flake-config --print-build-logs
+          nix run nixpkgs#docker -- load <result
+          docker push ghcr.io/jalil-salame/nix:latest
+  lockfile:
+    runs-on: ubuntu-22.04
+    needs: check
+    if: ${{ github.event_name == 'schedule' }} # only run when scheduled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v10
+      - uses: DeterminateSystems/update-flake-lock@v21
+      - name: Run `nix flake check`
+        run: nix flake check --accept-flake-config
+
+    
