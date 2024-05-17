@@ -2,11 +2,11 @@
   description = "A starting point for your devshell";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-unstable";
+    nixpkgs.follows = "lix/nixpkgs";
     systems.url = "github:nix-systems/default";
     lix = {
-      url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
-      flake = false;
+      url = "https://git.lix.systems/lix-project/lix/archive/2.90-beta.1.tar.gz";
+      inputs.nixpkgs-regression.follows = "";
     };
   };
 
@@ -24,29 +24,27 @@
     nixpkgs,
     systems,
     lix,
-    ...
   }: let
-    lixImage = pkgs: pkgs.callPackage (import (lix + "/docker.nix")) {inherit pkgs;};
+    lixImage = system: lix.packages.${system}.dockerImage;
     allSystems = import systems;
-    forEachSystem = f:
-      nixpkgs.lib.genAttrs allSystems (system:
-        f {
-          inherit system;
-          pkgs = nixpkgs.legacyPackages.${system};
-        });
+    forEachSystem = nixpkgs.lib.genAttrs allSystems;
+    nixpkgsFor = forEachSystem (system:
+      import nixpkgs {
+        inherit system;
+        overlays = [lix.overlays.default];
+      });
   in {
     # Nix code formatter; I like alejandra, but nixpkgsfmt, nixfmt-classic, and nixfmt-rfc-style also exist
-    formatter = forEachSystem ({pkgs, ...}: pkgs.alejandra);
+    formatter = forEachSystem (system: nixpkgsFor.${system}.alejandra);
     # Packages exported by this flake
-    packages = forEachSystem ({
-      pkgs,
-      system,
-    }: {
+    packages = forEachSystem (system: {
       default = self.packages.${system}.lixImage;
-      lixImage = lixImage pkgs;
+      lixImage = lixImage system;
     });
-    devShells = forEachSystem ({pkgs, ...}: {
-      default = pkgs.mkShell {packages = [];};
+    devShells = forEachSystem (system: let
+      pkgs = nixpkgsFor.${system};
+    in {
+      default = pkgs.mkShellNoCC {packages = [];};
     });
   };
 }

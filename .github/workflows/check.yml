@@ -28,7 +28,7 @@ jobs:
       - name: Build Docker Image
         run: |
           nix build --accept-flake-config --print-build-logs
-          cp -v "$(realpath result)" lix-image.tar.gz
+          cp -v "$(realpath result/image.tar.gz)" lix-image.tar.gz
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -47,8 +47,9 @@ jobs:
       - name: Push docker image
         run: |
           docker load <lix-image.tar.gz
-          docker login --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" "$REGISTRY"
-          docker image tag nix:latest "$REGISTRY/$IMAGE_NAME:latest"
+          docker image list
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username "${{ github.actor }}" --password-stdin "$REGISTRY"
+          docker image tag nix:2.90.0-beta.1 "$REGISTRY/$IMAGE_NAME:latest"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
   lockfile:
     runs-on: ubuntu-22.04
