@@ -6,7 +6,9 @@ on:
       - ./flake.lock
   schedule:
     - cron: 5 4 * * 5 # At 04:05 on Friday.
-
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: jalil-salame/lix
 jobs:
   check:
     runs-on: ubuntu-22.04
@@ -24,20 +26,30 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@v10
       - uses: DeterminateSystems/magic-nix-cache-action@v4
       - name: Build Docker Image
-        run: nix build --accept-flake-config --print-build-logs
-  pushImage:
-    runs-on: ubuntu-22.04
-    needs: check
-    if: github.ref == 'refs/heads/master'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v10
-      - uses: DeterminateSystems/magic-nix-cache-action@v4
-      - name: Push docker image
         run: |
           nix build --accept-flake-config --print-build-logs
-          nix run nixpkgs#docker -- load <result
-          docker push ghcr.io/jalil-salame/nix:latest
+          cp -v "$(realpath result)" lix-image.tar.gz
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lix-docker-image
+          path: lix-image.tar.gz
+  pushImage:
+    runs-on: ubuntu-22.04
+    needs: [check, buildImage]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download built image
+        uses: actions/download-artifact@v4
+        with:
+          name: lix-docker-image
+      - name: Push docker image
+        run: |
+          docker load <lix-image.tar.gz
+          docker login --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" "$REGISTRY"
+          docker image tag nix:latest "$REGISTRY/$IMAGE_NAME:latest"
+          docker push "$REGISTRY/$IMAGE_NAME:latest"
   lockfile:
     runs-on: ubuntu-22.04
     needs: check
@@ -48,5 +60,3 @@ jobs:
       - uses: DeterminateSystems/update-flake-lock@v21
       - name: Run `nix flake check`
         run: nix flake check --accept-flake-config
-
-    
