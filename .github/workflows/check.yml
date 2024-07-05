@@ -14,17 +14,17 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v10
-      - uses: DeterminateSystems/magic-nix-cache-action@v4
+      - uses: DeterminateSystems/nix-installer-action@v12
+      - uses: DeterminateSystems/magic-nix-cache-action@v7
       - name: Run `nix flake check`
-        run: nix flake check --accept-flake-config
+        run: nix flake check --accept-flake-config -v
   buildImage:
     needs: check
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v10
-      - uses: DeterminateSystems/magic-nix-cache-action@v4
+      - uses: DeterminateSystems/nix-installer-action@v12
+      - uses: DeterminateSystems/magic-nix-cache-action@v7
       - name: Build Docker Image
         run: |
           nix build --accept-flake-config --print-build-logs
@@ -57,7 +57,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' }} # only run when scheduled
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v10
-      - uses: DeterminateSystems/update-flake-lock@v21
+      - uses: DeterminateSystems/nix-installer-action@v12
+      - uses: DeterminateSystems/update-flake-lock@v23
       - name: Run `nix flake check`
-        run: nix flake check --accept-flake-config
+        run: nix flake check --accept-flake-config -v
